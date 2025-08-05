@@ -3,8 +3,6 @@ warnings.filterwarnings('ignore')
 import torch
 import torch.nn as nn
 import logging
-import sys
-import time
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -41,10 +39,10 @@ logger = logging.getLogger()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 loss_function = nn.MSELoss()
 batch_size = 32
-epochs = 300  # 300
-lr = 5e-4  # 5e-4
-result_path = "/home/syhuang/all_in_one"
-os.makedirs(result_path, exist_ok=True)
+epochs = 300
+lr = 5e-4
+# result_path = "/home/syhuang/all_in_one"
+# os.makedirs(result_path, exist_ok=True)
 
 def plot_curve(data, title, ylabel, path):
     plt.figure()
@@ -85,7 +83,7 @@ def train_epoch(model, dataloader, optimizer, best_psnr):
     total_psnr = 0
 
     with tqdm(dataloader, unit="Batch", desc="Train") as tqdm_loader:
-        for index, (deg_img, gt_img, gt_mask, depth, gt_A, gt_beta, gt_T) in enumerate(tqdm_loader):
+        for index, (deg_img, gt_img, gt_mask, depth, gt_A, gt_beta) in enumerate(tqdm_loader):
             deg_img = deg_img.to(device)
             gt_img = gt_img.to(device)
             gt_mask = gt_mask.to(device)
@@ -125,7 +123,7 @@ def train_epoch(model, dataloader, optimizer, best_psnr):
 
     if avg_psnr > best_psnr:
         best_psnr = avg_psnr
-        torch.save(model.state_dict(), os.path.join(result_path, "best_model_test.pkl"))
+        torch.save(model.state_dict(), "./best_model.pkl")
 
     logger.info(f"--Train-- img_loss: {avg_img_loss:.6f}, mask_loss: {avg_mask_loss:.6f}, A_loss: {avg_A_loss:.6f}, beta_loss: {avg_beta_loss:.6f}, PSNR: {avg_psnr:.6f}")
     return avg_psnr, avg_img_loss, avg_mask_loss, avg_A_loss, avg_beta_loss
@@ -152,7 +150,7 @@ def train(model, train_dataloader, optimizer):
     curve_path = os.path.join(os.getcwd(), "curves")
     os.makedirs(curve_path, exist_ok=True)
 
-    # plot_curve(psnr_list, "PSNR Curve", "PSNR", os.path.join(curve_path, "psnr_curve.jpg"))
+    plot_curve(psnr_list, "PSNR Curve", "PSNR", os.path.join(curve_path, "psnr_curve.jpg"))
 
     plot_all_losses(img_loss_list, mask_loss_list, A_loss_list, beta_loss_list,
                     os.path.join(curve_path, "loss_curve.jpg"))
@@ -160,13 +158,12 @@ def train(model, train_dataloader, optimizer):
     return psnr_list, img_loss_list, mask_loss_list, A_loss_list, beta_loss_list
 
 if __name__ == "__main__":
-    deg_root = "/ssddisk/syhuang/All_in_one/degraded"
-    gt_root = "/ssddisk/syhuang/All_in_one/gt"
-    mask_root = "/ssddisk/syhuang/All_in_one/mask"
-    depth_root = "/ssddisk/syhuang/All_in_one/depth"
-    trans_root = "/ssddisk/syhuang/All_in_one/trans"
+    deg_root = "/YOUR/SYNTHETIC/DERADED/IMAGES/ROOT"
+    gt_root = "/YOUR/SYNTHETIC/GT/IMAGES/ROOT"
+    mask_root = "/YOUR/SYNTHETIC/MASK/ROOT"
+    depth_root = "/YOUR/SYNTHETIC/DEPTH/ROOT"
 
-    train_dataset = MyDataset(deg_root, gt_root, mask_root, depth_root, trans_root)
+    train_dataset = MyDataset(deg_root, gt_root, mask_root, depth_root)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
 
     model = Network(device).to(device)

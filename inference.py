@@ -2,17 +2,13 @@ import warnings
 warnings.filterwarnings('ignore')
 import torch
 import torch.nn as nn
-import logging
-import sys
-from thop import profile
 import time
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 from tqdm import tqdm
 from math import log10
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import DataLoader
 from torchvision import transforms
 import torchvision.transforms.functional as TF
 import torch.nn.functional as F
@@ -58,7 +54,6 @@ def test_epoch(model, dataloader):
         total_images = 0
         with tqdm(dataloader, unit = "Batch", desc = "Inference") as tqdm_loader:
             for index, (deg_img, gt_img, target, target_depth) in enumerate(tqdm_loader):
-                # forward
                 deg_img = deg_img.to(device)
                 gt_img = gt_img.to(device)
                 target = target.to(device)
@@ -74,17 +69,14 @@ def test_epoch(model, dataloader):
                 total_time += batch_time
                 total_images += deg_img.size(0)
 
-                # calculate avg loss and psnr
                 psnr = PSNR(result, deg_img)
                 psnr = psnr.detach().item()
                 total_psnr += psnr
                 avg_psnr = total_psnr / (index + 1)
 
-                # print progress
                 tqdm_loader.set_postfix(psnr = avg_psnr)
 
-                # save results
-                changed_path = os.path.join("/ssddisk/syhuang/ablation_parameter/350", "mask_change_rain")
+                changed_path = os.path.join("/YOUR/SAVE/PATH", "mask_change_rain")
                 os.makedirs(changed_path, exist_ok=True)
 
                 rain_path = os.path.join(changed_path, "rain")
@@ -97,7 +89,6 @@ def test_epoch(model, dataloader):
                 save_img(result, os.path.join(rain_path, f'result_{index + 1}.jpg'))
                 save_img(gt_img, os.path.join(gt_path, f'clean_{index + 1}.jpg'))
                 save_img(target, os.path.join(target_path, f'target_{index + 1}.jpg'))
-                # save_img(target_mask, os.path.join(target_path, f'target_mask_{index + 1}.jpg'))
         avg_time_per_image = total_time / total_images
         print(f"Average inference time per image: {avg_time_per_image * 1000:.2f} ms")
 
@@ -129,31 +120,15 @@ def test(model, test_dataloader):
 
 
 if __name__ == "__main__":
-    deg_root = "/ssddisk/syhuang/All_in_one/degraded"
-    gt_root = "/ssddisk/syhuang/All_in_one/gt"
-    target_root = "/ssddisk/syhuang/WeatherStream/rain/deg"
-    target_depth_root = "/ssddisk/syhuang/WeatherStream/rain/depth"
+    deg_root = "/YOUR/SYNTHETIC/DERADED/IMAGES/ROOT"
+    gt_root = "/YOUR/SYNTHETIC/GT/IMAGES/ROOT"
+    target_root = "YOUR/REAL_WORLD/DEGRADED/IMAGES/ROOT"
+    target_depth_root = "YOUR/REAL_WORLD/DEPTHMAP/ROOT"
 
     test_dataset = MyDataset(deg_root, gt_root, target_root, target_depth_root)
     test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, drop_last = True)
 
     model = Network(device).to(device)
-    model.load_state_dict(torch.load('/ssddisk/syhuang/ablation_parameter/best_model_350.pkl', map_location=device))
-
-        # === 加入 FLOPs 計算 ===
-    # dummy_clean = torch.randn(1, 3, 256, 256).to(device)
-    # dummy_target = torch.randn(1, 3, 256, 256).to(device)
-    # dummy_depth = torch.randn(1, 256, 256).to(device)
-
-    # # 確保 model.inference 是一個 nn.Module.forward-like function
-    # def forward_pass(*inputs):
-    #     return model.inference(*inputs)[0]  # 只取 result
-
-    # flops, params = profile(model, inputs=(dummy_clean, dummy_target, dummy_depth), verbose=False)
-    # print('FLOPs = ' + str(flops / 1000 ** 3) + 'G')
-    # print('Params = ' + str(params / 1000 ** 2) + 'M')
-
+    model.load_state_dict(torch.load('./best_model.pkl', map_location=device))
 
     test(model, test_dataloader)
-
-    # test_for_one(model, clean_img_root, target_img_root, target_depth_root)
